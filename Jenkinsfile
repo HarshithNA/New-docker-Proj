@@ -18,10 +18,11 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                checkout scm
+                git branch: 'main',
+                    url: 'https://github.com/HarshithNA/New-docker-Proj',
+                    credentialsId: 'git-credentials'
             }
         }
 
