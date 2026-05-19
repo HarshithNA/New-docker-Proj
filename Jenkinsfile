@@ -2,12 +2,12 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION   = 'us-east-1'
-        ECR_REGISTRY = '503884896971.dkr.ecr.us-east-1.amazonaws.com'
-        ECR_REPO     = 'my-application'
+        AWS_REGION   = 'eu-north-1'
+        ECR_REGISTRY = '710119226111.dkr.ecr.eu-north-1.amazonaws.com'
+        ECR_REPO     = 'my-app'
         IMAGE        = "${ECR_REGISTRY}/${ECR_REPO}:${BUILD_NUMBER}"
-        DEPLOY_HOST  = 'ubuntu@172.31.13.116'
-        CONTAINER    = 'my-application'
+        DEPLOY_HOST  = 'ubuntu@13.60.27.114'
+        CONTAINER    = 'my-app'
         APP_PORT     = '8080'
     }
 
