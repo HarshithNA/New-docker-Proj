@@ -63,8 +63,8 @@ pipeline {
                     """
                 }
             }
-        }   // ← closes stage('Deploy to EC2')
-    }       // ← closes stages  (was MISSING)
+        }   
+    }       
     post {
         success { echo "Build #${BUILD_NUMBER} deployed successfully" }
         failure { echo "Build #${BUILD_NUMBER} failed" }
