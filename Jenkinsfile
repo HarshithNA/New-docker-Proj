@@ -49,21 +49,25 @@ pipeline {
                 """
             }
         }
-        stage('Deploy to EC2') {
-            steps {
-                sshagent(credentials: ['ecr-creds']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_HOST} '
-                            /usr/local/bin/aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY} &&
-                            docker pull ${IMAGE} &&
-                            docker stop ${CONTAINER} 2>/dev/null || true &&
-                            docker rm ${CONTAINER} 2>/dev/null || true &&
-                            docker run -d --name ${CONTAINER} --restart unless-stopped -p ${APP_PORT}:${APP_PORT} ${IMAGE}
-                        '
-                    """
-                }
-            }
-        }   
+        stage('Update Manifest & ArgoCD Sync') {
+  steps {
+    sh """
+      
+      sed -i 's|tag:.*|tag: "${BUILD_NUMBER}"|' \
+        k8s/helm/values.yaml
+      git add k8s/helm/values.yaml
+      git commit -m "ci: deploy build ${BUILD_NUMBER}"
+      git push origin main
+
+      
+      argocd app sync my-app \
+        --server ${ARGO_SERVER} \
+        --auth-token ${ARGO_TOKEN} \
+        --grpc-web
+      argocd app wait my-app --health
+    """
+  }
+}
     }       
     post {
         success { echo "Build #${BUILD_NUMBER} deployed successfully" }
