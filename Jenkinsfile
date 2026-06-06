@@ -1,5 +1,6 @@
 pipeline {
     agent any
+
     environment {
         AWS_REGION   = 'eu-north-1'
         ECR_REGISTRY = '710119226111.dkr.ecr.eu-north-1.amazonaws.com'
@@ -9,10 +10,13 @@ pipeline {
         CONTAINER    = 'my-app'
         APP_PORT     = '8080'
     }
+
     tools {
         'hudson.plugins.sonar.SonarRunnerInstallation' 'SonarScanner'
     }
+
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -20,13 +24,15 @@ pipeline {
                     credentialsId: 'git-credentials'
             }
         }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh "${tool('SonarScanner')}/bin/sonar-scanner -Dsonar.projectKey=${ECR_REPO} -Dsonar.sources=."
+                    sh "${tool 'SonarScanner'}/bin/sonar-scanner -Dsonar.projectKey=${ECR_REPO} -Dsonar.sources=."
                 }
             }
         }
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -34,11 +40,13 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Build') {
             steps {
                 sh "docker build -t ${IMAGE} ."
             }
         }
+
         stage('Push to ECR') {
             steps {
                 sh """
@@ -49,29 +57,34 @@ pipeline {
                 """
             }
         }
-        stage('Update Manifest & ArgoCD Sync') {
-  steps {
-    sh """
-      
-      sed -i 's|tag:.*|tag: "${BUILD_NUMBER}"|' \
-        k8s/helm/values.yaml
-      git add k8s/helm/values.yaml
-      git commit -m "ci: deploy build ${BUILD_NUMBER}"
-      git push origin main
 
-      
-      argocd app sync my-app \
-        --server ${ARGO_SERVER} \
-        --auth-token ${ARGO_TOKEN} \
-        --grpc-web
-      argocd app wait my-app --health
-    """
-  }
-}
-    }       
+        stage('Update Manifest & ArgoCD Sync') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'argo-server', variable: 'ARGO_SERVER'),
+                    string(credentialsId: 'argo-token',  variable: 'ARGO_TOKEN')
+                ]) {
+                    sh """
+                        sed -i 's|tag:.*|tag: "${BUILD_NUMBER}"|' k8s/helm/values.yaml
+                        git add k8s/helm/values.yaml
+                        git commit -m "ci: deploy build ${BUILD_NUMBER}"
+                        git push origin main
+
+                        argocd app sync my-app \
+                            --server \${ARGO_SERVER} \
+                            --auth-token \${ARGO_TOKEN} \
+                            --grpc-web
+                        argocd app wait my-app --health
+                    """
+                }
+            }
+        }
+
+    }
+
     post {
         success { echo "Build #${BUILD_NUMBER} deployed successfully" }
         failure { echo "Build #${BUILD_NUMBER} failed" }
         always  { cleanWs() }
     }
-} 
+}
